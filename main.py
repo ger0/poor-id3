@@ -4,7 +4,22 @@ import csv
 import math
 
 FILENAME = "titanic-homework.csv"
-DEFAULT_TAB = "   "
+DEFAULT_TAB = "|   "
+
+TITANIC_AGE_LABEL = "Age"
+TITANIC_AGE_DATA = {
+    "young":    [-1, 20],
+    "middle":   [20, 40],
+    "old":      [40, 100]
+}
+
+
+def titanic_age_group(age):
+    for group in TITANIC_AGE_DATA:
+        bounds = TITANIC_AGE_DATA[group]
+        if int(age) > bounds[0] and int(age) < bounds[1]:
+            return group
+    # return "unknown"
 
 
 def load_data(filename):
@@ -21,7 +36,10 @@ def load_data(filename):
                     lists.append([])
             else:
                 for x in range(len(labels)):
-                    lists[x].append(row[x])
+                    if labels[x] == TITANIC_AGE_LABEL:
+                        lists[x].append(titanic_age_group(row[x]))
+                    else:
+                        lists[x].append(row[x])
             i += 1
     for x in range(len(labels)):
         dict[labels[x]] = lists[x]
@@ -78,9 +96,9 @@ def calc_attrib(data, attr, res):
     return (cond_entropy, intr_info)
 
 
-def check_known_attribs(i, curr_attr, data, known_attr: {}):
+def check_known_attribs(i, data, known_attr: {}):
     for chk in known_attr:
-        if curr_attr != chk and data[chk][i] not in known_attr[chk]:
+        if data[chk][i] not in known_attr[chk]:
             return False
     return True
 
@@ -92,55 +110,57 @@ def check_inner_dict_empty(dict):
     return False
 
 
-def id(data, res, order=[], known_attr={}):
-    # if there are no remaining attributes to check return nothing
+def id3(data, res, order=[], known_attr={}):
     if not bool(order):
         return {}
-
     dict = {}
     attr = order[0]
 
-    last = None
-    are_identical = False
+    # unique values on currently checked attribute
+    unique_vals = set(data[attr])
 
-    # iterate over every entry in the data
-    for i in range(len(data[attr])):
+    for val in unique_vals:
         new_known_attr = known_attr.copy()
         new_known_attr.setdefault(attr, [])
+        new_known_attr[attr].append(val)
 
-        # val is value of the i-th element in the attribute attr
-        val = data[attr][i]
-        result_val = data[res][i]
+        # checking if all known attributes return the same result class
+        last = None
+        are_identical = False
+        for i in range(len(data[res])):
+            # leave this element if it doesnt match already known attributes
+            if not check_known_attribs(i, data, new_known_attr):
+                continue
 
-        # known_attr contains values known in the higher nodes
-        # ignore entry if the attributes were matched in higher nodes
-        if not check_known_attribs(i, attr, data, new_known_attr):
+            result_val = data[res][i]
+
+            if last is None:
+                last = result_val
+                are_identical = True
+            elif result_val != last:
+                last = result_val
+                are_identical = False
+                break
+
+        # if all matching elements result in the same class we skip to the next value
+        if (are_identical):
+            dict[val] = {res: last}
             continue
 
-        if val not in new_known_attr[attr]:
-            new_known_attr[attr].append(val)
-
-        next = id(data, res, order[1:], new_known_attr)
-
-        if last is None:
-            last = result_val
-            are_identical = True
-
-        elif result_val != last:
-            are_identical = False
+        # otherwise we are going deeper
+        next = id3(data, res, order[1:], new_known_attr)
 
         # check if the dict is empty
-        if bool(next):
+        if last is not None:
             # check if theres an empty dict inside
-            if (check_inner_dict_empty(next)):
-                dict[val] = {res: result_val}
+            if not bool(next) or check_inner_dict_empty(next):
+                dict[val] = {res: last}
             else:
                 dict[val] = next
-        else:
-            dict[val] = {res: result_val}
 
-    if (are_identical):
-        return {res: last}
+    if len(dict) == 1:
+        [key] = dict.keys()
+        return dict[key]
     else:
         return {attr: dict}
 
@@ -148,14 +168,11 @@ def id(data, res, order=[], known_attr={}):
 def printTree(tree, tabs=''):
     n_tabs = tabs + DEFAULT_TAB
     if type(tree) == str:
-        print(tabs + tree)
-    else:
+        print(tabs + ">", tree)
+    elif tree is not None:
         for key in tree:
-            print(n_tabs + key)
-            if bool(tree):
-                printTree(tree[key], n_tabs)
-            else:
-                print(n_tabs + tree[key])
+            print(tabs, key)
+            printTree(tree[key], n_tabs)
 
 
 cond_entropies = {}
@@ -163,16 +180,16 @@ intr_infos = {}
 gain_ratios = {}
 gains = {}
 
-# data, size = loadData(FILENAME)
-# data.pop("Name")
-# print(calcEntropy(data, attr="Pclass", res="Survived"))
+data, size = load_data("titanic-data.csv")
+data.pop("Name")
 
-data, size = load_data("./test.csv")
-set_entropy = calc_set_entropy(data, res="decision")
+res_class = "Survived"
+id_attr = "PassengerId"
+set_entropy = calc_set_entropy(data, res_class)
 
 
-for attr in {k: data[k] for k in data if k not in ('id', 'decision')}:
-    cond_entropy, intr_info = calc_attrib(data, attr, res="decision")
+for attr in {k: data[k] for k in data if k not in (id_attr, res_class)}:
+    cond_entropy, intr_info = calc_attrib(data, attr, res_class)
     gain = set_entropy - cond_entropy
     if intr_info != 0:
         gain_ratio = gain / intr_info
@@ -190,6 +207,6 @@ for attr in {k: data[k] for k in data if k not in ('id', 'decision')}:
 attr_order = list({key: val for key, val in sorted(
     gains.items(), key=lambda ele: ele[1], reverse=True)}.keys())
 
-tree = id(data, "decision", attr_order)
+tree = id3(data, res_class, attr_order)
 printTree(tree)
 # print(tree)
