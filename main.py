@@ -2,6 +2,7 @@
 
 import csv
 import math
+from treelib import Node, Tree
 
 FILENAME = "titanic-homework.csv"
 DEFAULT_TAB = "|   "
@@ -17,9 +18,9 @@ TITANIC_AGE_DATA = {
 def titanic_age_group(age):
     for group in TITANIC_AGE_DATA:
         bounds = TITANIC_AGE_DATA[group]
-        if int(age) > bounds[0] and int(age) < bounds[1]:
+        if int(age) > bounds[0] and int(age) <= bounds[1]:
             return group
-    # return "unknown"
+    return "unknown"
 
 
 def load_data(filename):
@@ -165,6 +166,14 @@ def id3(data, res, order=[], known_attr={}):
         return {attr: dict}
 
 
+def treePrint(dict, tree, parent):
+    if type(dict) == str:
+        tree.create_node(dict, parent=parent)
+    elif dict is not None:
+        for key in dict:
+            treePrint(dict[key], tree, tree.create_node(key, parent=parent))
+
+
 def printTree(tree, tabs=''):
     n_tabs = tabs + DEFAULT_TAB
     if type(tree) == str:
@@ -207,6 +216,10 @@ for attr in {k: data[k] for k in data if k not in (id_attr, res_class)}:
 attr_order = list({key: val for key, val in sorted(
     gains.items(), key=lambda ele: ele[1], reverse=True)}.keys())
 
-tree = id3(data, res_class, attr_order)
-printTree(tree)
-# print(tree)
+dict = id3(data, res_class, attr_order)
+
+tree = Tree()
+root = "Titanic"
+tree.create_node(root, root)
+treePrint(dict, tree, root)
+tree.show()
