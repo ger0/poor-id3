@@ -1,0 +1,11 @@
+id,buying_price,doors,safety,decision
+1,high,4,low,no
+2,high,5more,high,yes
+3,low,5more,high,yes
+4,low,5more,low,no
+5,low,4,med,yes
+6,low,4,high,yes
+7,med,4,high,no
+8,med,3,high,yes
+9,vhigh,3,med,no
+10,vhigh,5more,high,no
