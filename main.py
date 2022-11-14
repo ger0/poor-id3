@@ -154,11 +154,10 @@ def get_next_attr(data, res_class, known_attr={}):
         return None
 
 
-def id3(data, res, next_attr, known_attr={}):
-    if not bool(next_attr):
+def id3(data, res, attr, known_attr={}):
+    if not bool(attr):
         return {}
     dict = {}
-    attr = next_attr
 
     # unique values on currently checked attribute
     unique_vals = set(data[attr])
@@ -186,14 +185,14 @@ def id3(data, res, next_attr, known_attr={}):
                 are_identical = False
                 break
 
-        # if all matching elements result in the same class we skip to the next value
+        # if all matching elements result in the same class we return the class
         if (are_identical):
             dict[val] = {res: last}
             continue
 
         # otherwise we are going deeper
-        new_attrib = get_next_attr(data, res, new_known_attr)
-        next = id3(data, res, new_attrib, new_known_attr)
+        next_attr = get_next_attr(data, res, new_known_attr)
+        next = id3(data, res, next_attr, new_known_attr)
 
         # check if the dict is empty
         if last is not None:
