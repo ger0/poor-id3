@@ -146,7 +146,7 @@ def get_next_attr(data, res_class, known_attr={}):
 
     # order of the attributes (highest gain first)
     attr_order = list({key: val for key, val in sorted(
-        gains.items(), key=lambda ele: ele[1], reverse=True)}.keys())
+        gain_ratios.items(), key=lambda ele: ele[1], reverse=True)}.keys())
 
     if bool(attr_order):
         return attr_order[0]
