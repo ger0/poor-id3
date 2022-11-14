@@ -75,7 +75,7 @@ def check_known_attribs(i, data, known_attr: {}):
 
 
 def calc_attrib(data, attr, res, known_attr={}):
-    # data dictionary, attribute label, result label
+    # data dictionary, attribute label, result label, known attributes
     # returns conditional entropy and intrinsic info for a selected attribute
     results = {}
     attr_count = {}
@@ -187,7 +187,8 @@ def id3(data, res, attr, known_attr={}):
 
         # if all matching elements result in the same class we return the class
         if (are_identical):
-            dict[val] = {res: last}
+            # dict[val] = {res: last}
+            dict[val] = "%s: %s" % (res, last)
             continue
 
         # otherwise we are going deeper
@@ -198,7 +199,8 @@ def id3(data, res, attr, known_attr={}):
         if last is not None:
             # check if theres an empty dict inside
             if not bool(next) or check_inner_dict_empty(next):
-                dict[val] = {res: last}
+                # dict[val] = {res: last}
+                dict[val] = "%s: %s" % (res, last)
             else:
                 dict[val] = next
 
