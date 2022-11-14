@@ -4,8 +4,9 @@ import csv
 import math
 from treelib import Node, Tree
 
-FILENAME = "titanic-homework.csv"
+FILENAME = "titanic-data.csv"
 DEFAULT_TAB = "|   "
+
 
 TITANIC_AGE_LABEL = "Age"
 TITANIC_AGE_DATA = {
@@ -48,26 +49,41 @@ def load_data(filename):
     return (dict, i - 1)
 
 
-def calc_set_entropy(data, res):
-    size = len(data[res])
+def calc_set_entropy(data, res, known_attr: {}):
+    count = 0
     vals = {}
     entropy = 0
-    for val in data[res]:
+
+    for i in range(len(data[res])):
+        val = data[res][i]
+        if not check_known_attribs(i, data, known_attr):
+            continue
         vals.setdefault(val, 0)
         vals[val] += 1
+        count += 1
     for key in vals:
-        prob = vals[key] / size
+        prob = vals[key] / count
         entropy -= prob * math.log(prob, 2)
     return entropy
 
 
-def calc_attrib(data, attr, res):
+def check_known_attribs(i, data, known_attr: {}):
+    for chk in known_attr:
+        if data[chk][i] not in known_attr[chk]:
+            return False
+    return True
+
+
+def calc_attrib(data, attr, res, known_attr={}):
     # data dictionary, attribute label, result label
     # returns conditional entropy and intrinsic info for a selected attribute
     results = {}
     attr_count = {}
-    count = len(data[attr])
+    count = 0
     for i in range(len(data[attr])):
+        if not check_known_attribs(i, data, known_attr):
+            continue
+
         attrib = data[attr][i]
         result = data[res][i]
 
@@ -77,6 +93,7 @@ def calc_attrib(data, attr, res):
 
         attr_count.setdefault(attrib, 0)
         attr_count[attrib] += 1
+        count += 1
 
     entropies = {}
     intr_info = 0
@@ -97,13 +114,6 @@ def calc_attrib(data, attr, res):
     return (cond_entropy, intr_info)
 
 
-def check_known_attribs(i, data, known_attr: {}):
-    for chk in known_attr:
-        if data[chk][i] not in known_attr[chk]:
-            return False
-    return True
-
-
 def check_inner_dict_empty(dict):
     for x in dict:
         if not bool(dict[x]):
@@ -111,11 +121,44 @@ def check_inner_dict_empty(dict):
     return False
 
 
-def id3(data, res, order=[], known_attr={}):
-    if not bool(order):
+def get_next_attr(data, res_class, known_attr={}):
+    set_entropy = calc_set_entropy(data, res_class, known_attr)
+    cond_entropies = {}
+    intr_infos = {}
+    gain_ratios = {}
+    gains = {}
+
+    unwanted = list(known_attr.keys())
+    unwanted.append(res_class)
+
+    for attr in {k: data[k] for k in data if k not in unwanted}:
+        cond_entropy, intr_info = calc_attrib(
+            data, attr, res_class, known_attr)
+        gain = set_entropy - cond_entropy
+        if intr_info != 0:
+            gain_ratio = gain / intr_info
+        else:
+            gain_ratio = 10000.0
+
+        gains[attr] = gain
+        cond_entropies[attr], intr_infos[attr] = cond_entropy, intr_info
+        gain_ratios[attr] = gain_ratio
+
+    # order of the attributes (highest gain first)
+    attr_order = list({key: val for key, val in sorted(
+        gains.items(), key=lambda ele: ele[1], reverse=True)}.keys())
+
+    if bool(attr_order):
+        return attr_order[0]
+    else:
+        return None
+
+
+def id3(data, res, next_attr, known_attr={}):
+    if not bool(next_attr):
         return {}
     dict = {}
-    attr = order[0]
+    attr = next_attr
 
     # unique values on currently checked attribute
     unique_vals = set(data[attr])
@@ -149,7 +192,8 @@ def id3(data, res, order=[], known_attr={}):
             continue
 
         # otherwise we are going deeper
-        next = id3(data, res, order[1:], new_known_attr)
+        new_attrib = get_next_attr(data, res, new_known_attr)
+        next = id3(data, res, new_attrib, new_known_attr)
 
         # check if the dict is empty
         if last is not None:
@@ -174,49 +218,14 @@ def treePrint(dict, tree, parent):
             treePrint(dict[key], tree, tree.create_node(key, parent=parent))
 
 
-def printTree(tree, tabs=''):
-    n_tabs = tabs + DEFAULT_TAB
-    if type(tree) == str:
-        print(tabs + ">", tree)
-    elif tree is not None:
-        for key in tree:
-            print(tabs, key)
-            printTree(tree[key], n_tabs)
-
-
-cond_entropies = {}
-intr_infos = {}
-gain_ratios = {}
-gains = {}
-
-data, size = load_data("titanic-data.csv")
+data, size = load_data(FILENAME)
 data.pop("Name")
+data.pop("PassengerId")
 
 res_class = "Survived"
-id_attr = "PassengerId"
-set_entropy = calc_set_entropy(data, res_class)
 
-
-for attr in {k: data[k] for k in data if k not in (id_attr, res_class)}:
-    cond_entropy, intr_info = calc_attrib(data, attr, res_class)
-    gain = set_entropy - cond_entropy
-    if intr_info != 0:
-        gain_ratio = gain / intr_info
-    else:
-        gain_ratio = 10000.0
-
-    gains[attr] = gain
-    cond_entropies[attr], intr_infos[attr] = cond_entropy, intr_info
-    gain_ratios[attr] = gain_ratio
-
-    print("attr: %s, %f" % (attr, gain_ratio))
-
-
-# order of the attributes (highest gain first)
-attr_order = list({key: val for key, val in sorted(
-    gains.items(), key=lambda ele: ele[1], reverse=True)}.keys())
-
-dict = id3(data, res_class, attr_order)
+next_attr = get_next_attr(data, res_class)
+dict = id3(data, res_class, next_attr)
 
 tree = Tree()
 root = "Titanic"
